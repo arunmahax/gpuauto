@@ -153,6 +153,12 @@
           <div class="icon">&#128249;</div>
           <div class="label">Drop video files here or click to browse</div>
         </div>
+        <div style="text-align:center;color:var(--text2);font-size:12px;margin:8px 0;">— or paste a YouTube URL —</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="ytUrlInput" placeholder="https://www.youtube.com/watch?v=..." style="flex:1;">
+          <button class="btn btn-sm btn-outline" id="ytDownloadBtn" onclick="downloadFromYoutube()">&#11015; Download</button>
+        </div>
+        <div id="ytStatus" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
         <div class="file-list" id="videoFileList"></div>
       </div>
       <div class="section">
@@ -497,6 +503,32 @@ function removeVideo(idx) {
   state.uploadedVideos.splice(idx, 1);
   state.uploadedVideos.forEach((v, i) => { v.id = 'v' + (i + 1); v.label = 'Video ' + (i + 1); });
   renderVideoList();
+}
+
+async function downloadFromYoutube() {
+  const urlInput = document.getElementById('ytUrlInput');
+  const statusEl = document.getElementById('ytStatus');
+  const btn = document.getElementById('ytDownloadBtn');
+  const url = urlInput.value.trim();
+  if (!url) return;
+  if (state.uploadedVideos.length >= 3) { alert('Max 3 videos'); return; }
+  btn.disabled = true;
+  statusEl.textContent = 'Downloading from YouTube... (this may take a minute)';
+  statusEl.style.color = 'var(--primary)';
+  try {
+    const res = await fetch('/api/download-youtube', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const idx = state.uploadedVideos.length;
+    state.uploadedVideos.push({ id: 'v' + (idx + 1), filename: data.filename, path: data.path, size: data.size, label: 'Video ' + (idx + 1) });
+    renderVideoList();
+    urlInput.value = '';
+    statusEl.textContent = 'Downloaded: ' + data.filename;
+    statusEl.style.color = 'var(--green)';
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  } finally { btn.disabled = false; }
 }
 
 // Logo upload

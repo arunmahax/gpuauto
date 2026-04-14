@@ -11,16 +11,27 @@ echo "════════════════════════�
 
 # ─── Install Node.js 20 LTS ───
 echo ""
-echo "[1/5] Installing Node.js 20..."
+echo "[1/6] Installing Node.js 20..."
 if ! command -v node &> /dev/null; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y nodejs
 fi
 echo "  Node.js $(node -v)"
 
+# ─── Install yt-dlp ───
+echo ""
+echo "[2/6] Installing yt-dlp..."
+if ! command -v yt-dlp &> /dev/null; then
+  pip install -q yt-dlp 2>/dev/null || pip3 install -q yt-dlp 2>/dev/null || {
+    curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+    chmod a+rx /usr/local/bin/yt-dlp
+  }
+fi
+echo "  yt-dlp $(yt-dlp --version 2>/dev/null || echo 'installed')"
+
 # ─── Install FFmpeg with NVENC ───
 echo ""
-echo "[2/5] Installing FFmpeg with NVENC..."
+echo "[3/6] Installing FFmpeg with NVENC..."
 if ! command -v ffmpeg &> /dev/null; then
   apt-get update -qq
   apt-get install -y --no-install-recommends ffmpeg
@@ -41,13 +52,13 @@ echo "  $(ffmpeg -version 2>&1 | head -1)"
 
 # ─── Install project dependencies ───
 echo ""
-echo "[3/5] Installing npm dependencies..."
+echo "[4/6] Installing npm dependencies..."
 cd /workspace/youtube-automation
 npm install --production=false 2>&1 | tail -1
 
 # ─── Verify GPU ───
 echo ""
-echo "[4/5] Checking GPU..."
+echo "[5/6] Checking GPU..."
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo "  WARNING: nvidia-smi not found"
 
 # Test NVENC
@@ -59,7 +70,7 @@ fi
 
 # ─── Start server ───
 echo ""
-echo "[5/5] Starting server..."
+echo "[6/6] Starting server..."
 
 # Auto-detect RunPod pod ID for auto-stop feature
 if [ -n "$RUNPOD_POD_ID" ]; then

@@ -8,6 +8,7 @@ import multer from "multer";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import { execFile } from "child_process";
 import { v4 as uuidv4 } from "uuid";
 import { CONFIG } from "../utils/config";
 import { runPipeline } from "../pipeline/orchestrator";
@@ -147,6 +148,73 @@ app.post("/api/upload/background", (req, res, next) => {
   if (!req.file) { res.status(400).json({ error: "No background image" }); return; }
   res.json({ filename: req.file.filename, path: req.file.path, size: req.file.size });
 });
+
+// ═══════════════════════════════════════
+//  YOUTUBE URL DOWNLOAD
+// ═══════════════════════════════════════
+
+app.post("/api/download-youtube", async (req, res) => {
+  const { url } = req.body;
+  if (!url || typeof url !== "string") {
+    res.status(400).json({ error: "URL is required" });
+    return;
+  }
+
+  // Basic YouTube URL validation
+  const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)/;
+  if (!ytRegex.test(url)) {
+    res.status(400).json({ error: "Invalid YouTube URL" });
+    return;
+  }
+
+  const uploadsDir = path.join(CONFIG.paths.input, "uploads");
+  fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const outputTemplate = path.join(uploadsDir, `yt_${Date.now()}_%(title).30s.%(ext)s`);
+
+  // Try yt-dlp first, fall back to youtube-dl
+  const ytBin = await findYtDlp();
+  if (!ytBin) {
+    res.status(500).json({ error: "yt-dlp not installed. Run: pip install yt-dlp" });
+    return;
+  }
+
+  const args = [
+    "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+    "--merge-output-format", "mp4",
+    "--no-playlist",
+    "-o", outputTemplate,
+    "--print", "after_move:filepath",
+    url,
+  ];
+
+  try {
+    const filePath = await new Promise<string>((resolve, reject) => {
+      execFile(ytBin, args, { timeout: 300000 }, (err, stdout, stderr) => {
+        if (err) return reject(new Error(stderr || err.message));
+        const lines = stdout.trim().split("\n");
+        resolve(lines[lines.length - 1].trim());
+      });
+    });
+
+    const filename = path.basename(filePath);
+    const stat = fs.statSync(filePath);
+    res.json({ filename, path: filePath, size: stat.size });
+  } catch (err: any) {
+    res.status(500).json({ error: "Download failed: " + err.message });
+  }
+});
+
+function findYtDlp(): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("yt-dlp", ["--version"], (err) => {
+      if (!err) return resolve("yt-dlp");
+      execFile("youtube-dl", ["--version"], (err2) => {
+        resolve(err2 ? null : "youtube-dl");
+      });
+    });
+  });
+}
 
 // ═══════════════════════════════════════
 //  TRANSFORM (start pipeline)
