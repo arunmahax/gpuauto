@@ -171,7 +171,7 @@ app.post("/api/download-youtube", async (req, res) => {
   fs.mkdirSync(uploadsDir, { recursive: true });
 
   const safeId = `yt_${Date.now()}`;
-  const outputFile = path.join(uploadsDir, `${safeId}.mp4`);
+  const outputFile = path.join(uploadsDir, `${safeId}.%(ext)s`);
 
   // Try yt-dlp first, fall back to youtube-dl
   const ytBin = await findYtDlp();
@@ -181,24 +181,29 @@ app.post("/api/download-youtube", async (req, res) => {
   }
 
   const args = [
-    "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+    "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
     "--merge-output-format", "mp4",
     "--no-playlist",
+    "--restrict-filenames",
     "-o", outputFile,
     url,
   ];
 
   try {
     await new Promise<void>((resolve, reject) => {
-      execFile(ytBin, args, { timeout: 300000 }, (err, _stdout, stderr) => {
-        if (err) return reject(new Error(stderr || err.message));
+      execFile(ytBin, args, { timeout: 300000, maxBuffer: 10 * 1024 * 1024 }, (err, _stdout, stderr) => {
+        if (err) return reject(new Error(stderr?.slice(-500) || err.message));
         resolve();
       });
     });
 
-    const stat = fs.statSync(outputFile);
-    const filename = path.basename(outputFile);
-    res.json({ filename, path: outputFile, size: stat.size });
+    // Find the downloaded file (yt-dlp replaces %(ext)s with actual extension)
+    const files = fs.readdirSync(uploadsDir).filter(f => f.startsWith(safeId));
+    if (files.length === 0) throw new Error("File not found after download");
+    const filename = files[0];
+    const filePath = path.join(uploadsDir, filename);
+    const stat = fs.statSync(filePath);
+    res.json({ filename, path: filePath, size: stat.size });
   } catch (err: any) {
     res.status(500).json({ error: "Download failed: " + err.message });
   }
