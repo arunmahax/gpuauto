@@ -403,7 +403,10 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Jobs</div>
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+        Jobs
+        <button class="btn btn-sm" onclick="cleanupFiles()" style="font-size:12px;" title="Delete uploaded videos, temp files, and output">&#128465; Cleanup Files</button>
+      </div>
       <div id="jobsList">
         <div class="empty-state">
           <div class="icon">&#128250;</div>
@@ -692,6 +695,16 @@ async function applyTemplate(id) {
 async function deleteTemplateById(id) {
   if (!confirm('Delete this template?')) return;
   try { await fetch('/api/templates/' + id, { method: 'DELETE' }); loadTemplates(); } catch (e) {}
+}
+
+// Cleanup
+async function cleanupFiles() {
+  if (!confirm('Delete all uploaded videos, temp files, and output files?')) return;
+  try {
+    const res = await fetch('/api/cleanup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targets: ['uploads', 'temp', 'output'] }) });
+    const data = await res.json();
+    alert('Cleared: ' + data.cleared.join(', '));
+  } catch (e) { alert('Cleanup failed: ' + e.message); }
 }
 
 // Transform

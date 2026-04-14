@@ -459,6 +459,38 @@ app.post("/api/runpod/create", async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════
+//  CLEANUP — delete uploads, temp, output
+// ═══════════════════════════════════════
+
+function clearDirectory(dir: string) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    fs.rmSync(full, { recursive: true, force: true });
+  }
+}
+
+app.post("/api/cleanup", (req, res) => {
+  const targets: string[] = req.body.targets || ["uploads", "temp", "output"];
+  const cleared: string[] = [];
+
+  if (targets.includes("uploads")) {
+    clearDirectory(path.join(CONFIG.paths.input, "uploads"));
+    cleared.push("uploads");
+  }
+  if (targets.includes("temp")) {
+    clearDirectory(CONFIG.paths.temp);
+    cleared.push("temp");
+  }
+  if (targets.includes("output")) {
+    clearDirectory(CONFIG.paths.output);
+    cleared.push("output");
+  }
+
+  res.json({ cleared });
+});
+
 // ─── SPA fallback ───
 app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.resolve(__dirname, "../web/public/index.html"));
