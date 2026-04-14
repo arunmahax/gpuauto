@@ -1,0 +1,936 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Transformation Studio</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #12121a;
+      --bg3: #1a1a28;
+      --border: #2a2a3a;
+      --accent: #6c5ce7;
+      --accent2: #a29bfe;
+      --green: #00b894;
+      --red: #e74c3c;
+      --orange: #f39c12;
+      --text: #e0e0f0;
+      --text2: #8888aa;
+      --radius: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+    .header h1 { font-size: 20px; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header .version { color: var(--text2); font-size: 12px; }
+
+    .layout { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 57px); }
+    .sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 57px); }
+    .main { padding: 24px; overflow-y: auto; max-height: calc(100vh - 57px); }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg3); }
+    .tab { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; transition: all 0.2s; flex: 1; text-align: center; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+    .tab-content { display: none; padding: 16px; }
+    .tab-content.active { display: block; }
+
+    .section { margin-bottom: 20px; }
+    .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 10px; font-weight: 600; }
+
+    label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 13px; outline: none; transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+    .row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .row > * { flex: 1; }
+    .field { margin-bottom: 12px; }
+
+    .range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .range-row label { flex: 1; margin: 0; white-space: nowrap; }
+    .range-row input[type="range"] { flex: 2; accent-color: var(--accent); }
+    .range-row .val { width: 40px; text-align: right; font-size: 12px; color: var(--accent2); }
+
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .toggle { width: 40px; height: 22px; background: var(--border); border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s; }
+    .toggle.on { background: var(--accent); }
+    .toggle::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.2s; }
+    .toggle.on::after { left: 20px; }
+
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius); padding: 24px; text-align: center;
+      cursor: pointer; transition: all 0.3s; margin-bottom: 10px; position: relative;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(108, 92, 231, 0.05); }
+    .upload-zone.dragover { border-color: var(--accent); background: rgba(108, 92, 231, 0.1); }
+    .upload-zone input { display: none; }
+    .upload-zone .icon { font-size: 28px; margin-bottom: 8px; }
+    .upload-zone .label { font-size: 14px; color: var(--text2); }
+    .file-list { margin-top: 8px; }
+    .file-item { background: var(--bg3); padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .file-item .remove { color: var(--red); cursor: pointer; font-size: 16px; }
+
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+      font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary { background: var(--accent); color: white; width: 100%; justify-content: center; }
+    .btn-primary:hover { background: #5b4bd5; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--accent); }
+    .btn-danger { background: var(--red); color: white; }
+
+    .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; max-height: 300px; overflow-y: auto; }
+    .filter-card {
+      background: var(--bg); border: 2px solid var(--border); border-radius: 8px; padding: 10px;
+      cursor: pointer; transition: all 0.2s; font-size: 12px;
+    }
+    .filter-card:hover { border-color: var(--accent); }
+    .filter-card.selected { border-color: var(--accent); background: rgba(108, 92, 231, 0.1); }
+    .filter-card .fname { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+    .filter-card .fdesc { color: var(--text2); line-height: 1.3; }
+
+    .job-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+    .job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .job-name { font-weight: 600; font-size: 14px; }
+    .job-status { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .job-status.queued { background: rgba(243, 156, 18, 0.15); color: var(--orange); }
+    .job-status.processing { background: rgba(108, 92, 231, 0.15); color: var(--accent2); }
+    .job-status.completed { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+    .job-status.failed { background: rgba(231, 76, 60, 0.15); color: var(--red); }
+    .job-progress { font-size: 12px; color: var(--text2); }
+    .job-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+    .template-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+    .template-card:hover { border-color: var(--accent); }
+    .template-card .tname { font-weight: 600; font-size: 14px; }
+    .template-card .tdate { font-size: 11px; color: var(--text2); }
+    .template-card .tactions { margin-top: 8px; display: flex; gap: 6px; }
+
+    input[type="color"] { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; }
+    .color-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .color-row label { flex: 1; margin: 0; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    .empty-state { text-align: center; padding: 40px; color: var(--text2); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Video Transformation Studio</h1>
+  <span class="version">v2.0</span>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="tabs">
+      <div class="tab active" data-tab="upload">Upload</div>
+      <div class="tab" data-tab="script">Script</div>
+      <div class="tab" data-tab="voice">Voice</div>
+      <div class="tab" data-tab="visual">Visual</div>
+      <div class="tab" data-tab="templates">Templates</div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div class="tab-content active" id="tab-upload">
+      <div class="section">
+        <div class="section-title">Source Videos (1-3)</div>
+        <div class="upload-zone" id="videoUploadZone">
+          <input type="file" id="videoInput" accept=".mp4,.mov,.avi,.mkv,.webm" multiple>
+          <div class="icon">&#128249;</div>
+          <div class="label">Drop video files here or click to browse</div>
+        </div>
+        <div class="file-list" id="videoFileList"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Logo (optional)</div>
+        <div class="upload-zone" id="logoUploadZone" style="padding: 14px;">
+          <input type="file" id="logoInput" accept=".png,.jpg,.jpeg,.svg,.webp">
+          <div class="icon">&#127912;</div>
+          <div class="label">Upload logo (PNG recommended)</div>
+        </div>
+        <div id="logoFileInfo" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Background Music</div>
+        <div class="upload-zone" id="musicUploadZone" style="padding: 14px;">
+          <input type="file" id="musicInput" accept=".mp3,.wav,.ogg,.m4a,.aac">
+          <div class="icon">&#127925;</div>
+          <div class="label">Upload music or select below</div>
+        </div>
+        <div class="field">
+          <select id="musicSelect"><option value="">None</option></select>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Output</div>
+        <div class="field">
+          <label>Output filename</label>
+          <input type="text" id="outputName" value="transformed_video" placeholder="output name">
+        </div>
+        <div class="range-row">
+          <label>Target Duration (min)</label>
+          <input type="range" id="targetDuration" min="1" max="30" value="10" step="1">
+          <span class="val" id="targetDurationVal">10</span>
+        </div>
+        <div class="range-row">
+          <label>Scene Threshold</label>
+          <input type="range" id="sceneThreshold" min="0.1" max="0.9" value="0.3" step="0.05">
+          <span class="val" id="sceneThresholdVal">0.3</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script Tab -->
+    <div class="tab-content" id="tab-script">
+      <div class="section">
+        <div class="section-title">Script Generation</div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="scriptMode">
+            <option value="ai_title">AI from Title (recommended)</option>
+            <option value="ai_transcript">Transcript → AI Rewrite</option>
+            <option value="manual">Manual Script</option>
+          </select>
+        </div>
+        <div id="scriptTranscriptInfo" style="display:none;padding:8px;background:var(--bg3);border-radius:6px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.4;">
+          Extracts the transcript from your video via Whisper, then Claude Sonnet rewrites it into a completely new, high-retention script.
+        </div>
+        <div id="scriptTitleSection">
+          <div class="field">
+            <label>Video Title</label>
+            <input type="text" id="videoTitle" placeholder="The Untold Story of...">
+          </div>
+          <div class="field">
+            <label>Script Provider</label>
+            <select id="scriptProvider">
+              <option value="openrouter">OpenRouter (Gemini)</option>
+              <option value="claude">Claude Sonnet</option>
+              <option value="openai">OpenAI (GPT-4o)</option>
+            </select>
+          </div>
+        </div>
+        <div id="scriptManualSection" style="display:none;">
+          <div class="field">
+            <label>Narration Script</label>
+            <textarea id="narrationScript" rows="10" placeholder="Write your narration script here..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Voice Tab -->
+    <div class="tab-content" id="tab-voice">
+      <div class="section">
+        <div class="section-title">TTS Provider</div>
+        <div class="field">
+          <select id="ttsProvider">
+            <option value="openai">OpenAI TTS</option>
+            <option value="elevenlabs">ElevenLabs</option>
+            <option value="fish">Fish Audio</option>
+            <option value="google">Google Cloud TTS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Voice</label>
+          <select id="ttsVoice"></select>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Audio Mix</div>
+        <div class="range-row">
+          <label>Narration Volume</label>
+          <input type="range" id="narrationVolume" min="0" max="2" value="1" step="0.05">
+          <span class="val" id="narrationVolumeVal">1.0</span>
+        </div>
+        <div class="range-row">
+          <label>Music Volume</label>
+          <input type="range" id="musicVolume" min="0" max="1" value="0.12" step="0.01">
+          <span class="val" id="musicVolumeVal">0.12</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual Tab -->
+    <div class="tab-content" id="tab-visual">
+      <div class="section">
+        <div class="section-title">Filters</div>
+        <div class="filter-grid" id="filterGrid"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Transitions</div>
+        <div class="field">
+          <select id="transitionType"></select>
+        </div>
+        <div class="range-row">
+          <label>Duration</label>
+          <input type="range" id="transitionDuration" min="0" max="1" value="0.3" step="0.05">
+          <span class="val" id="transitionDurationVal">0.3s</span>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Layout</div>
+        <div class="range-row">
+          <label>Content Scale</label>
+          <input type="range" id="contentScale" min="0.5" max="1" value="0.85" step="0.01">
+          <span class="val" id="contentScaleVal">85%</span>
+        </div>
+        <div class="range-row">
+          <label>Border Radius</label>
+          <input type="range" id="borderRadius" min="0" max="30" value="8" step="1">
+          <span class="val" id="borderRadiusVal">8</span>
+        </div>
+        <div class="color-row">
+          <label>Background Color</label>
+          <input type="color" id="bgColor" value="#0a0a0a">
+        </div>
+        <div class="field">
+          <label>Background Image (replaces color)</label>
+          <div class="upload-zone" id="bgUploadZone" style="padding: 10px;">
+            <input type="file" id="bgInput" accept=".png,.jpg,.jpeg,.webp">
+            <div class="icon" style="font-size:20px;">&#127756;</div>
+            <div class="label" style="font-size:12px;">Upload branded background</div>
+          </div>
+          <div id="bgFileInfo" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+          <select id="bgSelect" style="margin-top:6px;"><option value="">None (solid color)</option></select>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Logo Overlay</div>
+        <div class="toggle-row">
+          <label>Enable Logo</label>
+          <div class="toggle" id="logoToggle"></div>
+        </div>
+        <div id="logoSettings" style="display:none;">
+          <div class="field">
+            <label>Position</label>
+            <select id="logoPosition">
+              <option value="top-left">Top Left</option>
+              <option value="top-right">Top Right</option>
+              <option value="bottom-left">Bottom Left</option>
+              <option value="bottom-right" selected>Bottom Right</option>
+              <option value="center">Center</option>
+            </select>
+          </div>
+          <div class="range-row">
+            <label>Scale</label>
+            <input type="range" id="logoScale" min="0.03" max="0.3" value="0.12" step="0.01">
+            <span class="val" id="logoScaleVal">12%</span>
+          </div>
+          <div class="range-row">
+            <label>Opacity</label>
+            <input type="range" id="logoOpacity" min="0" max="1" value="0.7" step="0.05">
+            <span class="val" id="logoOpacityVal">70%</span>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Picture-in-Picture</div>
+        <div class="toggle-row">
+          <label>Enable PiP</label>
+          <div class="toggle" id="pipToggle"></div>
+        </div>
+        <div id="pipSettings" style="display:none;">
+          <div class="field">
+            <label>Position</label>
+            <select id="pipPosition">
+              <option value="top-left">Top Left</option>
+              <option value="top-right" selected>Top Right</option>
+              <option value="bottom-left">Bottom Left</option>
+              <option value="bottom-right">Bottom Right</option>
+              <option value="center">Center</option>
+            </select>
+          </div>
+          <div class="range-row">
+            <label>Scale</label>
+            <input type="range" id="pipScale" min="0.1" max="0.5" value="0.25" step="0.01">
+            <span class="val" id="pipScaleVal">25%</span>
+          </div>
+          <div class="range-row">
+            <label>Border Width</label>
+            <input type="range" id="pipBorderWidth" min="0" max="8" value="2" step="1">
+            <span class="val" id="pipBorderWidthVal">2</span>
+          </div>
+          <div class="color-row">
+            <label>Border Color</label>
+            <input type="color" id="pipBorderColor" value="#ffffff">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Templates Tab -->
+    <div class="tab-content" id="tab-templates">
+      <div class="section">
+        <div class="section-title">Save Current Settings</div>
+        <div class="row">
+          <input type="text" id="templateName" placeholder="Template name...">
+          <button class="btn btn-sm btn-outline" onclick="saveCurrentTemplate()">Save</button>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Saved Templates</div>
+        <div id="templateList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Area -->
+  <div class="main">
+    <div style="margin-bottom: 20px;">
+      <button class="btn btn-primary" id="transformBtn" onclick="startTransform()">&#9654; Start Transformation</button>
+    </div>
+
+    <!-- Cloud GPU Panel -->
+    <div class="section" id="cloudPanel" style="display:none;">
+      <div class="section-title">&#9729; Cloud GPU (RunPod)</div>
+      <div id="cloudContent" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+        <div id="cloudLoading" style="color:var(--text2);font-size:13px;">Checking cloud status...</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Jobs</div>
+      <div id="jobsList">
+        <div class="empty-state">
+          <div class="icon">&#128250;</div>
+          <p>No jobs yet. Upload videos and click Transform to start.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = { uploadedVideos: [], uploadedLogo: null, selectedFilters: [], filters: [], transitions: [], voices: {}, templates: [] };
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Toggles
+function setupToggle(id, settingsId) {
+  const el = document.getElementById(id);
+  document.getElementById(settingsId);
+  el.addEventListener('click', () => {
+    el.classList.toggle('on');
+    document.getElementById(settingsId).style.display = el.classList.contains('on') ? 'block' : 'none';
+  });
+}
+setupToggle('logoToggle', 'logoSettings');
+setupToggle('pipToggle', 'pipSettings');
+
+// Range sliders
+function bindRange(id, valId, fmt) {
+  const el = document.getElementById(id), val = document.getElementById(valId);
+  el.addEventListener('input', () => { val.textContent = fmt ? fmt(el.value) : el.value; });
+  val.textContent = fmt ? fmt(el.value) : el.value;
+}
+bindRange('targetDuration', 'targetDurationVal');
+bindRange('sceneThreshold', 'sceneThresholdVal');
+bindRange('narrationVolume', 'narrationVolumeVal', v => parseFloat(v).toFixed(2));
+bindRange('musicVolume', 'musicVolumeVal', v => parseFloat(v).toFixed(2));
+bindRange('contentScale', 'contentScaleVal', v => Math.round(v * 100) + '%');
+bindRange('borderRadius', 'borderRadiusVal');
+bindRange('transitionDuration', 'transitionDurationVal', v => v + 's');
+bindRange('logoScale', 'logoScaleVal', v => Math.round(v * 100) + '%');
+bindRange('logoOpacity', 'logoOpacityVal', v => Math.round(v * 100) + '%');
+bindRange('pipScale', 'pipScaleVal', v => Math.round(v * 100) + '%');
+bindRange('pipBorderWidth', 'pipBorderWidthVal');
+
+// Script mode
+document.getElementById('scriptMode').addEventListener('change', function() {
+  const mode = this.value;
+  document.getElementById('scriptTitleSection').style.display = (mode === 'ai_title' || mode === 'ai_transcript') ? 'block' : 'none';
+  document.getElementById('scriptManualSection').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('scriptTranscriptInfo').style.display = mode === 'ai_transcript' ? 'block' : 'none';
+});
+
+// Video upload
+const videoZone = document.getElementById('videoUploadZone');
+const videoInput = document.getElementById('videoInput');
+videoZone.addEventListener('click', () => videoInput.click());
+videoZone.addEventListener('dragover', e => { e.preventDefault(); videoZone.classList.add('dragover'); });
+videoZone.addEventListener('dragleave', () => videoZone.classList.remove('dragover'));
+videoZone.addEventListener('drop', e => { e.preventDefault(); videoZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadVideos(e.dataTransfer.files); });
+videoInput.addEventListener('change', () => { if (videoInput.files.length) uploadVideos(videoInput.files); });
+
+async function uploadVideos(files) {
+  const fd = new FormData();
+  const max = Math.min(files.length, 3 - state.uploadedVideos.length);
+  if (max <= 0) return alert('Max 3 videos');
+  for (let i = 0; i < max; i++) fd.append('videos', files[i]);
+  try {
+    const res = await fetch('/api/upload/videos', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (Array.isArray(data)) { state.uploadedVideos.push(...data); renderVideoList(); }
+  } catch (e) { console.error('Upload failed:', e); }
+}
+function renderVideoList() {
+  document.getElementById('videoFileList').innerHTML = state.uploadedVideos.map((v, i) =>
+    '<div class="file-item"><span>' + v.label + ': ' + v.filename + ' (' + (v.size / 1048576).toFixed(1) + 'MB)</span><span class="remove" onclick="removeVideo(' + i + ')">&times;</span></div>'
+  ).join('');
+}
+function removeVideo(idx) {
+  state.uploadedVideos.splice(idx, 1);
+  state.uploadedVideos.forEach((v, i) => { v.id = 'v' + (i + 1); v.label = 'Video ' + (i + 1); });
+  renderVideoList();
+}
+
+// Logo upload
+const logoZone = document.getElementById('logoUploadZone');
+const logoInput = document.getElementById('logoInput');
+logoZone.addEventListener('click', () => logoInput.click());
+logoZone.addEventListener('dragover', e => { e.preventDefault(); logoZone.classList.add('dragover'); });
+logoZone.addEventListener('dragleave', () => logoZone.classList.remove('dragover'));
+logoZone.addEventListener('drop', e => { e.preventDefault(); logoZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadLogo(e.dataTransfer.files[0]); });
+logoInput.addEventListener('change', () => { if (logoInput.files.length) uploadLogo(logoInput.files[0]); });
+
+async function uploadLogo(file) {
+  const fd = new FormData(); fd.append('logo', file);
+  try {
+    const res = await fetch('/api/upload/logo', { method: 'POST', body: fd });
+    const data = await res.json();
+    state.uploadedLogo = data;
+    document.getElementById('logoFileInfo').textContent = 'Logo: ' + data.filename;
+  } catch (e) { console.error('Logo upload failed:', e); }
+}
+
+// Music upload
+const musicZone = document.getElementById('musicUploadZone');
+const musicInput = document.getElementById('musicInput');
+musicZone.addEventListener('click', () => musicInput.click());
+musicInput.addEventListener('change', async () => {
+  if (!musicInput.files.length) return;
+  const fd = new FormData(); fd.append('music', musicInput.files[0]);
+  try { await fetch('/api/upload/music', { method: 'POST', body: fd }); loadMusicList(); } catch (e) {}
+});
+
+async function loadMusicList() {
+  try {
+    const res = await fetch('/api/files/music');
+    const files = await res.json();
+    const sel = document.getElementById('musicSelect'), cur = sel.value;
+    sel.innerHTML = '<option value="">None</option>' + files.map(f => '<option value="' + f + '">' + f + '</option>').join('');
+    if (cur) sel.value = cur;
+  } catch (e) {}
+}
+
+// Background image upload
+const bgZone = document.getElementById('bgUploadZone');
+const bgInput = document.getElementById('bgInput');
+bgZone.addEventListener('click', () => bgInput.click());
+bgZone.addEventListener('dragover', e => { e.preventDefault(); bgZone.classList.add('dragover'); });
+bgZone.addEventListener('dragleave', () => bgZone.classList.remove('dragover'));
+bgZone.addEventListener('drop', e => { e.preventDefault(); bgZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadBgImage(e.dataTransfer.files[0]); });
+bgInput.addEventListener('change', () => { if (bgInput.files.length) uploadBgImage(bgInput.files[0]); });
+
+async function uploadBgImage(file) {
+  const fd = new FormData(); fd.append('background', file);
+  try {
+    const res = await fetch('/api/upload/background', { method: 'POST', body: fd });
+    const data = await res.json();
+    document.getElementById('bgFileInfo').textContent = 'Uploaded: ' + data.filename;
+    loadBgList();
+    setTimeout(() => { document.getElementById('bgSelect').value = data.path; }, 500);
+  } catch (e) { console.error('BG upload failed:', e); }
+}
+
+async function loadBgList() {
+  try {
+    const res = await fetch('/api/files/backgrounds');
+    const files = await res.json();
+    const sel = document.getElementById('bgSelect'), cur = sel.value;
+    sel.innerHTML = '<option value="">None (solid color)</option>' + files.map(f => '<option value="' + f + '">' + f + '</option>').join('');
+    if (cur) sel.value = cur;
+  } catch (e) {}
+}
+
+// Filters
+async function loadFilters() {
+  try { state.filters = await (await fetch('/api/filters')).json(); renderFilterGrid(); } catch (e) {}
+}
+function renderFilterGrid() {
+  document.getElementById('filterGrid').innerHTML = state.filters.map(f =>
+    '<div class="filter-card ' + (state.selectedFilters.includes(f.id) ? 'selected' : '') + '" onclick="toggleFilter(\'' + f.id + '\')">' +
+    '<div class="fname">' + f.name + '</div><div class="fdesc">' + f.description + '</div></div>'
+  ).join('');
+}
+function toggleFilter(id) {
+  const idx = state.selectedFilters.indexOf(id);
+  if (idx >= 0) state.selectedFilters.splice(idx, 1); else state.selectedFilters.push(id);
+  renderFilterGrid();
+}
+
+// Transitions
+async function loadTransitions() {
+  try {
+    state.transitions = await (await fetch('/api/transitions')).json();
+    const sel = document.getElementById('transitionType');
+    sel.innerHTML = state.transitions.map(t => '<option value="' + t.id + '">' + t.name + '</option>').join('');
+    sel.value = 'fade';
+  } catch (e) {}
+}
+
+// Voices
+async function loadVoices() {
+  try { state.voices = await (await fetch('/api/voices')).json(); updateVoiceDropdown(); } catch (e) {}
+}
+function updateVoiceDropdown() {
+  const provider = document.getElementById('ttsProvider').value;
+  const voices = state.voices[provider] || [];
+  document.getElementById('ttsVoice').innerHTML = voices.map(v => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+}
+document.getElementById('ttsProvider').addEventListener('change', updateVoiceDropdown);
+
+// Templates
+async function loadTemplates() {
+  try { state.templates = await (await fetch('/api/templates')).json(); renderTemplates(); } catch (e) {}
+}
+function renderTemplates() {
+  const list = document.getElementById('templateList');
+  if (!state.templates.length) { list.innerHTML = '<div class="empty-state"><p>No saved templates</p></div>'; return; }
+  list.innerHTML = state.templates.map(t =>
+    '<div class="template-card"><div class="tname">' + t.name + '</div>' +
+    '<div class="tdate">' + new Date(t.updatedAt).toLocaleDateString() + ' | ' + (t.ttsProvider || 'openai') + '</div>' +
+    '<div class="tactions"><button class="btn btn-sm btn-outline" onclick="applyTemplate(\'' + t.id + '\')">Apply</button>' +
+    '<button class="btn btn-sm btn-danger" onclick="deleteTemplateById(\'' + t.id + '\')">Delete</button></div></div>'
+  ).join('');
+}
+
+async function saveCurrentTemplate() {
+  const name = document.getElementById('templateName').value.trim();
+  if (!name) return alert('Enter a template name');
+  const tpl = {
+    name: name,
+    filters: state.selectedFilters,
+    transitionType: document.getElementById('transitionType').value,
+    transitionDuration: parseFloat(document.getElementById('transitionDuration').value),
+    contentScale: parseFloat(document.getElementById('contentScale').value),
+    backgroundColor: document.getElementById('bgColor').value,
+    backgroundImage: document.getElementById('bgSelect').value || '',
+    borderRadius: parseInt(document.getElementById('borderRadius').value),
+    logoEnabled: document.getElementById('logoToggle').classList.contains('on'),
+    logoPosition: document.getElementById('logoPosition').value,
+    logoScale: parseFloat(document.getElementById('logoScale').value),
+    logoOpacity: parseFloat(document.getElementById('logoOpacity').value),
+    pipEnabled: document.getElementById('pipToggle').classList.contains('on'),
+    pipPosition: document.getElementById('pipPosition').value,
+    pipScale: parseFloat(document.getElementById('pipScale').value),
+    pipBorderRadius: 8,
+    pipBorderColor: document.getElementById('pipBorderColor').value,
+    pipBorderWidth: parseInt(document.getElementById('pipBorderWidth').value),
+    narrationVolume: parseFloat(document.getElementById('narrationVolume').value),
+    musicVolume: parseFloat(document.getElementById('musicVolume').value),
+    ttsProvider: document.getElementById('ttsProvider').value,
+    ttsVoice: document.getElementById('ttsVoice').value,
+    scriptProvider: document.getElementById('scriptProvider').value,
+    targetDurationMin: parseInt(document.getElementById('targetDuration').value)
+  };
+  try {
+    await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) });
+    document.getElementById('templateName').value = '';
+    loadTemplates();
+  } catch (e) { console.error('Save failed:', e); }
+}
+
+async function applyTemplate(id) {
+  try {
+    const t = await (await fetch('/api/templates/' + id)).json();
+    state.selectedFilters = t.filters || []; renderFilterGrid();
+    const setVal = (sel, v) => { try { document.getElementById(sel).value = v; } catch(e){} };
+    setVal('transitionType', t.transitionType || 'fade');
+    setVal('transitionDuration', t.transitionDuration || 0.3);
+    setVal('contentScale', t.contentScale || 0.85);
+    setVal('bgColor', t.backgroundColor || '#0a0a0a');
+    setVal('bgSelect', t.backgroundImage || '');
+    setVal('borderRadius', t.borderRadius || 8);
+    setVal('narrationVolume', t.narrationVolume || 1);
+    setVal('musicVolume', t.musicVolume || 0.12);
+    setVal('ttsProvider', t.ttsProvider || 'openai');
+    updateVoiceDropdown();
+    setVal('ttsVoice', t.ttsVoice || 'onyx');
+    setVal('scriptProvider', t.scriptProvider || 'openrouter');
+    setVal('targetDuration', t.targetDurationMin || 10);
+    const logoT = document.getElementById('logoToggle');
+    if (t.logoEnabled) logoT.classList.add('on'); else logoT.classList.remove('on');
+    document.getElementById('logoSettings').style.display = t.logoEnabled ? 'block' : 'none';
+    setVal('logoPosition', t.logoPosition || 'bottom-right');
+    setVal('logoScale', t.logoScale || 0.12);
+    setVal('logoOpacity', t.logoOpacity || 0.7);
+    const pipT = document.getElementById('pipToggle');
+    if (t.pipEnabled) pipT.classList.add('on'); else pipT.classList.remove('on');
+    document.getElementById('pipSettings').style.display = t.pipEnabled ? 'block' : 'none';
+    setVal('pipPosition', t.pipPosition || 'top-right');
+    setVal('pipScale', t.pipScale || 0.25);
+    setVal('pipBorderWidth', t.pipBorderWidth || 2);
+    setVal('pipBorderColor', t.pipBorderColor || '#ffffff');
+    document.querySelectorAll('input[type="range"]').forEach(r => r.dispatchEvent(new Event('input')));
+    document.querySelector('.tab[data-tab="visual"]').click();
+  } catch (e) { console.error('Apply template failed:', e); }
+}
+
+async function deleteTemplateById(id) {
+  if (!confirm('Delete this template?')) return;
+  try { await fetch('/api/templates/' + id, { method: 'DELETE' }); loadTemplates(); } catch (e) {}
+}
+
+// Transform
+async function startTransform() {
+  if (!state.uploadedVideos.length) return alert('Upload at least one video');
+  const mode = document.getElementById('scriptMode').value;
+  const btn = document.getElementById('transformBtn'); btn.disabled = true;
+  const body = {
+    sourceVideos: state.uploadedVideos.map(v => ({ id: v.id, path: v.path, label: v.label })),
+    videoTitle: mode === 'ai_title' ? document.getElementById('videoTitle').value : null,
+    narrationScript: mode === 'manual' ? document.getElementById('narrationScript').value : null,
+    backgroundMusic: document.getElementById('musicSelect').value || null,
+    outputName: document.getElementById('outputName').value || 'transformed_video',
+    targetDurationMin: parseInt(document.getElementById('targetDuration').value),
+    sceneThreshold: parseFloat(document.getElementById('sceneThreshold').value),
+    filters: state.selectedFilters,
+    transition: { type: document.getElementById('transitionType').value, duration: parseFloat(document.getElementById('transitionDuration').value) },
+    contentScale: parseFloat(document.getElementById('contentScale').value),
+    backgroundColor: document.getElementById('bgColor').value,
+    backgroundImage: document.getElementById('bgSelect').value || '',
+    borderRadius: parseInt(document.getElementById('borderRadius').value),
+    pip: {
+      enabled: document.getElementById('pipToggle').classList.contains('on'),
+      position: document.getElementById('pipPosition').value,
+      scale: parseFloat(document.getElementById('pipScale').value),
+      borderRadius: 8, borderColor: document.getElementById('pipBorderColor').value,
+      borderWidth: parseInt(document.getElementById('pipBorderWidth').value), opacity: 1
+    },
+    logo: {
+      enabled: document.getElementById('logoToggle').classList.contains('on'),
+      path: state.uploadedLogo ? state.uploadedLogo.path : '',
+      position: document.getElementById('logoPosition').value,
+      scale: parseFloat(document.getElementById('logoScale').value),
+      opacity: parseFloat(document.getElementById('logoOpacity').value), margin: 20
+    },
+    narrationVolume: parseFloat(document.getElementById('narrationVolume').value),
+    musicVolume: parseFloat(document.getElementById('musicVolume').value),
+    ttsProvider: document.getElementById('ttsProvider').value,
+    ttsVoice: document.getElementById('ttsVoice').value,
+    scriptProvider: document.getElementById('scriptProvider').value,
+    useTranscriptRewrite: mode === 'ai_transcript'
+  };
+  try {
+    const res = await fetch('/api/transform', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await res.json(); startJobPolling();
+  } catch (e) { console.error('Transform failed:', e); }
+  btn.disabled = false;
+}
+
+// Job polling
+let pollInterval = null;
+function startJobPolling() { if (!pollInterval) { pollInterval = setInterval(refreshJobs, 3000); refreshJobs(); } }
+async function refreshJobs() {
+  try {
+    const jobs = await (await fetch('/api/jobs')).json();
+    renderJobs(jobs);
+    if (!jobs.some(j => j.status === 'queued' || j.status === 'processing') && pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  } catch (e) {}
+}
+function renderJobs(jobs) {
+  const list = document.getElementById('jobsList');
+  if (!jobs.length) { list.innerHTML = '<div class="empty-state"><div class="icon">&#128250;</div><p>No jobs yet</p></div>'; return; }
+  list.innerHTML = jobs.map(j => {
+    const fname = (j.outputPath || '').split(/[/\\]/).pop();
+    const dl = j.status === 'completed' && fname ? '<a class="btn btn-sm btn-outline" href="/api/download/' + encodeURIComponent(fname) + '" download>Download</a>' : '';
+    const meta = j.youtubeMetadata ? renderMetadata(j.youtubeMetadata) : '';
+    return '<div class="job-card"><div class="job-header"><span class="job-name">' + (j.outputName || 'Job') + '</span><span class="job-status ' + j.status + '">' + j.status + '</span></div>' +
+      '<div class="job-progress">' + (j.progress || '') + '</div>' +
+      (j.error ? '<div style="color:var(--red);font-size:12px;margin-top:6px;">' + j.error + '</div>' : '') +
+      meta +
+      '<div class="job-actions">' + dl + '</div></div>';
+  }).join('');
+}
+
+function renderMetadata(meta) {
+  const tagsHtml = (meta.tags || []).map(t => '<span style="display:inline-block;background:rgba(99,102,241,0.15);color:var(--primary);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;">' + escapeHtml(t) + '</span>').join('');
+  return '<div class="yt-metadata" style="margin-top:10px;padding:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;">' +
+    '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">&#127909; YouTube Metadata (click to copy)</div>' +
+    '<div style="margin-bottom:8px;">' +
+      '<label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Title</label>' +
+      '<div class="copyable" onclick="copyText(this)" style="cursor:pointer;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;font-weight:600;font-size:13px;">' + escapeHtml(meta.title) + '</div>' +
+    '</div>' +
+    '<div style="margin-bottom:8px;">' +
+      '<label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Description</label>' +
+      '<div class="copyable" onclick="copyText(this)" style="cursor:pointer;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;font-size:12px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">' + escapeHtml(meta.description) + '</div>' +
+    '</div>' +
+    '<div>' +
+      '<label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Tags</label>' +
+      '<div class="copyable" onclick="copyText(this)" style="cursor:pointer;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;">' + tagsHtml + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function copyText(el) {
+  const text = el.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.style.outline;
+    el.style.outline = '2px solid var(--green)';
+    setTimeout(() => el.style.outline = orig, 600);
+  });
+}
+
+// ─── Cloud GPU (RunPod) ───
+let cloudPollInterval = null;
+
+async function loadCloudStatus() {
+  try {
+    const r = await (await fetch('/api/runpod/status')).json();
+    const panel = document.getElementById('cloudPanel');
+    const content = document.getElementById('cloudContent');
+
+    if (!r.configured) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    panel.style.display = 'block';
+
+    if (r.error) {
+      content.innerHTML = '<div style="color:var(--red);font-size:13px;">Error: ' + escapeHtml(r.error) + '</div>';
+      return;
+    }
+
+    if (!r.pod) {
+      // No pod exists yet
+      content.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+          '<div>' +
+            '<div style="font-size:14px;font-weight:600;">No GPU Pod</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:4px;">Balance: $' + (r.balance || 0).toFixed(2) + '</div>' +
+          '</div>' +
+          '<button class="btn btn-sm btn-primary" onclick="createPod()">Create RTX 4090 Pod</button>' +
+        '</div>';
+      return;
+    }
+
+    const pod = r.pod;
+    const isRunning = pod.desiredStatus === 'RUNNING' && pod.runtime;
+    const isPending = pod.desiredStatus === 'RUNNING' && !pod.runtime;
+    const isStopped = pod.desiredStatus === 'EXITED';
+
+    const statusColor = isRunning ? 'var(--green)' : isPending ? 'var(--orange)' : 'var(--text2)';
+    const statusText = isRunning ? 'Running' : isPending ? 'Starting...' : 'Stopped';
+    const uptime = pod.runtime?.uptimeInSeconds ? Math.round(pod.runtime.uptimeInSeconds / 60) + ' min' : '-';
+    const gpu = pod.machine?.gpuDisplayName || 'GPU';
+    const cost = isRunning ? '~$0.012/min' : isStopped ? '$0.00/min (disk only)' : 'Provisioning...';
+
+    let actions = '';
+    if (isStopped) {
+      actions = '<button class="btn btn-sm btn-primary" onclick="startPod()">&#9654; Start Pod</button>';
+    } else if (isRunning) {
+      actions =
+        '<a class="btn btn-sm btn-outline" href="' + (pod.proxyUrl || '#') + '" target="_blank">Open Cloud Dashboard</a>' +
+        '<button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="stopPod()">&#9632; Stop Pod</button>';
+    } else if (isPending) {
+      actions = '<span style="color:var(--orange);font-size:12px;">Provisioning GPU...</span>';
+    }
+
+    content.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + statusColor + ';"></span>' +
+          '<div>' +
+            '<span style="font-weight:600;font-size:14px;">' + escapeHtml(pod.name || 'yt-automation') + '</span>' +
+            '<span style="margin-left:8px;font-size:12px;color:var(--text2);">' + gpu + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<span style="font-size:12px;color:' + statusColor + ';font-weight:600;">' + statusText + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:20px;font-size:12px;color:var(--text2);margin-bottom:12px;">' +
+        '<span>Uptime: ' + uptime + '</span>' +
+        '<span>Cost: ' + cost + '</span>' +
+        '<span>Pod: ' + pod.id + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' + actions + '</div>';
+
+    // Auto-poll while pending
+    if (isPending && !cloudPollInterval) {
+      cloudPollInterval = setInterval(loadCloudStatus, 5000);
+    } else if (!isPending && cloudPollInterval) {
+      clearInterval(cloudPollInterval);
+      cloudPollInterval = null;
+    }
+  } catch (e) {
+    document.getElementById('cloudPanel').style.display = 'none';
+  }
+}
+
+async function createPod() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try {
+    const r = await (await fetch('/api/runpod/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
+    if (r.id) {
+      alert('Pod created! ID: ' + r.id + '\\n\\nAdd this to your .env file:\\nRUNPOD_POD_ID=' + r.id + '\\n\\nThen restart the server.');
+    } else {
+      alert('Error: ' + (r.error || JSON.stringify(r)));
+    }
+  } catch (e) { alert('Failed: ' + e.message); }
+  btn.disabled = false; btn.textContent = 'Create RTX 4090 Pod';
+}
+
+async function startPod() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Starting...';
+  try {
+    const resp = await fetch('/api/runpod/start', { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      alert('Start failed: ' + (data.error || 'Unknown error'));
+      btn.disabled = false; btn.innerHTML = '&#9654; Start Pod';
+      return;
+    }
+    cloudPollInterval = setInterval(loadCloudStatus, 5000);
+    loadCloudStatus();
+  } catch (e) { alert('Failed: ' + e.message); btn.disabled = false; btn.innerHTML = '&#9654; Start Pod'; }
+}
+
+async function stopPod() {
+  if (!confirm('Stop the cloud GPU pod? This will save costs.')) return;
+  try {
+    await fetch('/api/runpod/stop', { method: 'POST' });
+    loadCloudStatus();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+// Init
+async function init() {
+  await Promise.all([loadFilters(), loadTransitions(), loadVoices(), loadMusicList(), loadBgList(), loadTemplates()]);
+  refreshJobs();
+  loadCloudStatus();
+}
+init();
+</script>
+</body>
+</html>

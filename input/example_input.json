@@ -1,0 +1,30 @@
+{
+  "sourceVideo": "./input/source_video.mp4",
+
+  "narrationScript": null,
+
+  "backgroundMusic": "ambient_music.mp3",
+  "backgroundMedia": null,
+
+  "outputName": "transformed_output",
+
+  "template": {
+    "contentScale": 0.8,
+    "tintColor": "rgba(180, 150, 50, 0.15)",
+    "tintOpacity": 1,
+    "grainEnabled": true,
+    "grainOpacity": 0.3,
+    "dotsEnabled": true,
+    "dotsOpacity": 0.08,
+    "vignetteEnabled": true,
+    "narrationVolume": 1.0,
+    "musicVolume": 0.15,
+    "backgroundColor": "#1a1a2e",
+    "animatedGradient": true,
+    "borderRadius": 12,
+    "contentShadow": true
+  },
+
+  "sceneThreshold": 0.3,
+  "ttsVoice": "onyx"
+}
